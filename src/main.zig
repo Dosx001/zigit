@@ -8,11 +8,17 @@ pub fn main() !void {
     var rp = Repository{ .repo = repo };
     try rp.log();
     try rp.status();
+    try rp.branch();
     return;
 }
 
 const Repository = struct {
     repo: ?*git.git_repository,
+    pub fn branch(self: Repository) !void {
+        var ref: ?*git.git_reference = undefined;
+        _ = git.git_repository_head(&ref, self.repo);
+        std.debug.print("{s}\n", .{git.git_reference_shorthand(ref)});
+    }
     pub fn log(self: Repository) !void {
         var walker: ?*git.git_revwalk = undefined;
         _ = git.git_revwalk_new(&walker, self.repo);
