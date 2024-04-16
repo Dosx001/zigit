@@ -9,8 +9,11 @@ pub fn main() !void {
     try rp.log();
     try rp.status();
     try rp.branch();
+    try rp.stash();
     return;
 }
+
+var COUNT: u8 = 0;
 
 const Repository = struct {
     repo: ?*git.git_repository,
@@ -28,6 +31,18 @@ const Repository = struct {
         var commit: ?*git.git_commit = undefined;
         _ = git.git_commit_lookup(&commit, self.repo, &oid);
         std.debug.print("{s}\n", .{git.git_commit_message(commit)});
+    }
+    pub fn stash(self: Repository) !void {
+        _ = git.git_stash_foreach(self.repo, stash_cb, null);
+        std.debug.print("Stashes: {}\n", .{COUNT});
+    }
+    fn stash_cb(index: usize, message: [*c]const u8, stash_id: [*c]const git.git_oid, payload: ?*anyopaque) callconv(.C) c_int {
+        _ = index;
+        _ = payload;
+        _ = stash_id;
+        _ = message;
+        COUNT += 1;
+        return 0;
     }
     pub fn status(self: Repository) !void {
         _ = git.git_status_foreach(self.repo, status_cb, null);
