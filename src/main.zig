@@ -12,8 +12,6 @@ pub fn main() !void {
     return;
 }
 
-var COUNT: u8 = 0;
-
 fn branch(repo: ?*git.git_repository) !void {
     var ref: ?*git.git_reference = undefined;
     _ = git.git_repository_head(&ref, repo);
@@ -32,16 +30,17 @@ fn log(repo: ?*git.git_repository) !void {
 }
 
 fn stash(repo: ?*git.git_repository) !void {
-    _ = git.git_stash_foreach(repo, stash_cb, null);
-    std.debug.print("Stashes: {}\n", .{COUNT});
+    var count: u8 = 0;
+    _ = git.git_stash_foreach(repo, stash_cb, &count);
+    std.debug.print("Stashes: {}\n", .{count});
 }
 
 fn stash_cb(index: usize, message: [*c]const u8, stash_id: [*c]const git.git_oid, payload: ?*anyopaque) callconv(.C) c_int {
     _ = index;
-    _ = payload;
     _ = stash_id;
     _ = message;
-    COUNT += 1;
+    const count: *u8 = @ptrCast(@alignCast(payload));
+    count.* += 1;
     return 0;
 }
 
