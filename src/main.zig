@@ -7,6 +7,7 @@ pub fn main() !void {
     if (0 < git.git_repository_open_ext(&repo, ".", 0, null)) return;
     try log(repo);
     try status(repo);
+    try state(repo);
     try branch(repo);
     try stash(repo);
     return;
@@ -55,6 +56,25 @@ fn stash_cb(index: usize, message: [*c]const u8, stash_id: [*c]const git.git_oid
     const count: *u8 = @ptrCast(@alignCast(payload));
     count.* += 1;
     return 0;
+}
+
+fn state(repo: ?*git.git_repository) !void {
+    const mode =
+        switch (git.git_repository_state(repo)) {
+        git.GIT_REPOSITORY_STATE_MERGE => "Merge",
+        git.GIT_REPOSITORY_STATE_REVERT => "Revert",
+        git.GIT_REPOSITORY_STATE_REVERT_SEQUENCE => "Revert",
+        git.GIT_REPOSITORY_STATE_CHERRYPICK => "Cherrypick",
+        git.GIT_REPOSITORY_STATE_CHERRYPICK_SEQUENCE => "Cherrypick",
+        git.GIT_REPOSITORY_STATE_BISECT => "Bisect",
+        git.GIT_REPOSITORY_STATE_REBASE => "Rebase",
+        git.GIT_REPOSITORY_STATE_REBASE_INTERACTIVE => "Rebase",
+        git.GIT_REPOSITORY_STATE_REBASE_MERGE => "Rebase/Merge",
+        git.GIT_REPOSITORY_STATE_APPLY_MAILBOX => "Mailbox",
+        git.GIT_REPOSITORY_STATE_APPLY_MAILBOX_OR_REBASE => "Mailbox or Rebase",
+        else => return,
+    };
+    std.debug.print("State: {s}\n", .{mode});
 }
 
 fn status(repo: ?*git.git_repository) !void {
