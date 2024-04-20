@@ -78,12 +78,14 @@ fn state(repo: ?*git.git_repository) !void {
 }
 
 fn status(repo: ?*git.git_repository) !void {
-    _ = git.git_status_foreach(repo, status_cb, null);
+    var opts: git.git_status_options = undefined;
+    _ = git.git_status_init_options(&opts, git.GIT_STATUS_OPTIONS_VERSION);
+    opts.flags = git.GIT_STATUS_OPT_INCLUDE_UNTRACKED;
+    _ = git.git_status_foreach_ext(repo, &opts, status_cb, null);
 }
 
 fn status_cb(path: [*c]const u8, status_flags: c_uint, payload: ?*anyopaque) callconv(.C) c_int {
     _ = payload;
-    std.debug.print("{s}\n", .{path});
-    std.debug.print("{}\n", .{status_flags});
+    std.debug.print("{s}: {} ", .{ path, status_flags });
     return 0;
 }
