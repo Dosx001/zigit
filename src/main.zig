@@ -15,7 +15,20 @@ pub fn main() !void {
 fn branch(repo: ?*git.git_repository) !void {
     var ref: ?*git.git_reference = undefined;
     _ = git.git_repository_head(&ref, repo);
-    std.debug.print("{s}\n", .{git.git_reference_shorthand(ref)});
+    const name = git.git_reference_shorthand(ref);
+    for ("HEAD", 0..) |c, i| {
+        if (name[i] != c) break;
+    } else {
+        var walker: ?*git.git_revwalk = undefined;
+        _ = git.git_revwalk_new(&walker, repo);
+        _ = git.git_revwalk_push_ref(walker, "HEAD");
+        var oid: git.git_oid = undefined;
+        _ = git.git_revwalk_next(&oid, walker);
+        var output: [8]u8 = undefined;
+        _ = git.git_oid_tostr(&output, 8, &oid);
+        std.debug.print("{s}\n", .{output});
+    }
+    std.debug.print("{s}\n", .{name});
 }
 
 fn log(repo: ?*git.git_repository) !void {
