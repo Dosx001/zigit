@@ -46,7 +46,9 @@ fn log(repo: ?*git.git_repository) !void {
 fn stash(repo: ?*git.git_repository) !void {
     var count: u8 = 0;
     _ = git.git_stash_foreach(repo, stash_cb, &count);
-    std.debug.print("Stashes: {}\n", .{count});
+    if (count == 0) {
+        std.debug.print("\x1b[31m\n", .{});
+    } else std.debug.print("\x1b[31;45m\x1b[30;45m Stashes: {} \x1b[0m\x1b[35m\n", .{count});
 }
 
 fn stash_cb(index: usize, message: [*c]const u8, stash_id: [*c]const git.git_oid, payload: ?*anyopaque) callconv(.C) c_int {
