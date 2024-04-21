@@ -5,42 +5,37 @@ pub fn main() !void {
     _ = git.git_libgit2_init();
     var repo: ?*git.git_repository = undefined;
     if (0 < git.git_repository_open_ext(&repo, ".", 0, null)) return;
-    try log(repo);
+    var oid: git.git_oid = undefined;
+    try log(repo, &oid);
     try status(repo);
     try state(repo);
-    try branch(repo);
+    try branch(repo, &oid);
     try stash(repo);
     return;
 }
 
-fn branch(repo: ?*git.git_repository) !void {
+fn branch(repo: ?*git.git_repository, oid: *git.git_oid) !void {
     var ref: ?*git.git_reference = undefined;
     _ = git.git_repository_head(&ref, repo);
     const name = git.git_reference_shorthand(ref);
     for ("HEAD", 0..) |c, i| {
         if (name[i] != c) break;
     } else {
-        var walker: ?*git.git_revwalk = undefined;
-        _ = git.git_revwalk_new(&walker, repo);
-        _ = git.git_revwalk_push_ref(walker, "HEAD");
-        var oid: git.git_oid = undefined;
-        _ = git.git_revwalk_next(&oid, walker);
         var output: [8]u8 = undefined;
-        _ = git.git_oid_tostr(&output, 8, &oid);
+        _ = git.git_oid_tostr(&output, 8, oid);
         std.debug.print("\x1b[30;41m {s} \x1b[0m", .{output});
         return;
     }
     std.debug.print("\x1b[30;41m {s} \x1b[0m", .{name});
 }
 
-fn log(repo: ?*git.git_repository) !void {
+fn log(repo: ?*git.git_repository, oid: *git.git_oid) !void {
     var walker: ?*git.git_revwalk = undefined;
     _ = git.git_revwalk_new(&walker, repo);
     _ = git.git_revwalk_push_ref(walker, "HEAD");
-    var oid: git.git_oid = undefined;
-    _ = git.git_revwalk_next(&oid, walker);
+    _ = git.git_revwalk_next(oid, walker);
     var commit: ?*git.git_commit = undefined;
-    _ = git.git_commit_lookup(&commit, repo, &oid);
+    _ = git.git_commit_lookup(&commit, repo, oid);
     std.debug.print("\x1b[90m{s}", .{git.git_commit_message(commit)});
 }
 
