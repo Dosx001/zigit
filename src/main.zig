@@ -27,9 +27,10 @@ fn branch(repo: ?*git.git_repository) !void {
         _ = git.git_revwalk_next(&oid, walker);
         var output: [8]u8 = undefined;
         _ = git.git_oid_tostr(&output, 8, &oid);
-        std.debug.print("{s}\n", .{output});
+        std.debug.print("\x1b[30;41m {s} \x1b[0m", .{output});
+        return;
     }
-    std.debug.print("{s}\n", .{name});
+    std.debug.print("\x1b[30;41m {s} \x1b[0m", .{name});
 }
 
 fn log(repo: ?*git.git_repository) !void {
