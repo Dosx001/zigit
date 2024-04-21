@@ -41,7 +41,7 @@ fn log(repo: ?*git.git_repository) !void {
     _ = git.git_revwalk_next(&oid, walker);
     var commit: ?*git.git_commit = undefined;
     _ = git.git_commit_lookup(&commit, repo, &oid);
-    std.debug.print("{s}\n", .{git.git_commit_message(commit)});
+    std.debug.print("\x1b[90m{s}", .{git.git_commit_message(commit)});
 }
 
 fn stash(repo: ?*git.git_repository) !void {
