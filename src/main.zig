@@ -57,8 +57,9 @@ fn stash_cb(index: usize, message: [*c]const u8, stash_id: [*c]const git.git_oid
 }
 
 fn state(repo: ?*git.git_repository) !void {
+    const repo_state = git.git_repository_state(repo);
     const mode =
-        switch (git.git_repository_state(repo)) {
+        switch (repo_state) {
         git.GIT_REPOSITORY_STATE_MERGE => "Merge",
         git.GIT_REPOSITORY_STATE_REVERT => "Revert",
         git.GIT_REPOSITORY_STATE_REVERT_SEQUENCE => "Revert",
@@ -72,6 +73,18 @@ fn state(repo: ?*git.git_repository) !void {
         git.GIT_REPOSITORY_STATE_APPLY_MAILBOX_OR_REBASE => "Mailbox or Rebase",
         else => return,
     };
+    if (repo_state == git.GIT_REPOSITORY_STATE_MERGE) {
+        const file = try std.fs.cwd().openFile(try std.fmt.allocPrintZ(std.heap.page_allocator, "{s}MERGE_MSG", .{git.git_repository_path(repo)}), .{});
+        var buf: [32]u8 = undefined;
+        _ = try file.reader().readUntilDelimiterOrEof(&buf, '\'');
+        _ = try file.reader().readUntilDelimiterOrEof(&buf, '\'');
+        for (buf, 0..) |c, i| {
+            if (c == '\'') {
+                std.debug.print("Merge: {s}\n", .{buf[0..i]});
+                break;
+            }
+        }
+    }
     std.debug.print("State: {s}\n", .{mode});
 }
 
