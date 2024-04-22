@@ -98,4 +98,13 @@ fn status() !void {
     var stderr = std.ArrayList(u8).init(std.heap.page_allocator);
     const max: usize = 1024 * 1024;
     _ = try std.ChildProcess.collectOutput(child, &stdout, &stderr, max);
+    var j: usize = 0;
+    for (stdout.items, 0..) |c, i| {
+        if (c == '\n') {
+            std.debug.print("{s} ", .{stdout.items[j + 3 .. i]});
+            j = i + 1;
+            continue;
+        }
+    }
+    if (j != 0) std.debug.print("\n", .{});
 }
