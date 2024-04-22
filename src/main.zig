@@ -7,7 +7,7 @@ pub fn main() !void {
     if (0 < git.git_repository_open_ext(&repo, ".", 0, null)) return;
     var oid: git.git_oid = undefined;
     try log(repo, &oid);
-    try status(repo);
+    try status();
     try state(repo);
     try branch(repo, &oid);
     try stash(repo);
@@ -88,15 +88,14 @@ fn state(repo: ?*git.git_repository) !void {
     std.debug.print("State: {s}\n", .{mode});
 }
 
-fn status(repo: ?*git.git_repository) !void {
-    var opts: git.git_status_options = undefined;
-    _ = git.git_status_init_options(&opts, git.GIT_STATUS_OPTIONS_VERSION);
-    opts.flags = git.GIT_STATUS_OPT_INCLUDE_UNTRACKED;
-    _ = git.git_status_foreach_ext(repo, &opts, status_cb, null);
-}
-
-fn status_cb(path: [*c]const u8, status_flags: c_uint, payload: ?*anyopaque) callconv(.C) c_int {
-    _ = payload;
-    std.debug.print("{s}: {} ", .{ path, status_flags });
-    return 0;
+fn status() !void {
+    const args = [_][]const u8{ "git", "status", "-s" };
+    var child = std.ChildProcess.init(&args, std.heap.page_allocator);
+    child.stdout_behavior = .Pipe;
+    child.stderr_behavior = .Pipe;
+    _ = try child.spawn();
+    var stdout = std.ArrayList(u8).init(std.heap.page_allocator);
+    var stderr = std.ArrayList(u8).init(std.heap.page_allocator);
+    const max: usize = 1024 * 1024;
+    _ = try std.ChildProcess.collectOutput(child, &stdout, &stderr, max);
 }
