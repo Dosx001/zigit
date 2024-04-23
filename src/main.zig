@@ -60,7 +60,7 @@ fn state(repo: ?*git.git_repository) !void {
     const repo_state = git.git_repository_state(repo);
     const mode =
         switch (repo_state) {
-        git.GIT_REPOSITORY_STATE_MERGE => "Merge",
+        git.GIT_REPOSITORY_STATE_MERGE => "Merging onto",
         git.GIT_REPOSITORY_STATE_REVERT => "Revert",
         git.GIT_REPOSITORY_STATE_REVERT_SEQUENCE => "Revert",
         git.GIT_REPOSITORY_STATE_CHERRYPICK => "Cherrypick",
@@ -80,12 +80,12 @@ fn state(repo: ?*git.git_repository) !void {
         _ = try file.reader().readUntilDelimiterOrEof(&buf, '\'');
         for (buf, 0..) |c, i| {
             if (c == '\'') {
-                std.debug.print("Merge: {s}\n", .{buf[0..i]});
+                std.debug.print("\x1b[30;41m {s} \x1b[42;31m", .{buf[0..i]});
                 break;
             }
         }
     }
-    std.debug.print("State: {s}\n", .{mode});
+    std.debug.print("\x1b[30;42m {s} \x1b[41;32m\x1b[30;41m", .{mode});
 }
 
 fn status() !void {
