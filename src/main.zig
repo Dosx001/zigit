@@ -101,7 +101,48 @@ fn status() !void {
     var j: usize = 0;
     for (stdout.items, 0..) |c, i| {
         if (c == '\n') {
-            std.debug.print("{s} ", .{stdout.items[j + 3 .. i]});
+            const color = switch (stdout.items[j]) {
+                '?' => "\x1b[37m",
+                ' ' => switch (stdout.items[j + 1]) {
+                    'M' => "\x1b[33m",
+                    'D' => "\x1b[31m",
+                    else => "\x1b[0m",
+                },
+                'A' => switch (stdout.items[j + 1]) {
+                    ' ' => "\x1b[34m",
+                    'A' => "\x1b[37;44m",
+                    'D' => "\x1b[96m",
+                    'M' => "\x1b[94m",
+                    'U' => "\x1b[30;44m",
+                    else => "\x1b[0m",
+                },
+                'D' => switch (stdout.items[j + 1]) {
+                    ' ' => "\x1b[91m",
+                    'D' => "\x1b[37;41m",
+                    'U' => "\x1b[30;41m",
+                    else => "\x1b[0m",
+                },
+                'M' => switch (stdout.items[j + 1]) {
+                    ' ' => "\x1b[32m",
+                    'D' => "\x1b[38;5;202m",
+                    'M' => "\x1b[93m",
+                    else => "\x1b[0m",
+                },
+                'U' => switch (stdout.items[j + 1]) {
+                    'A' => "\x1b[33;44m",
+                    'D' => "\x1b[33;41m",
+                    'U' => "\x1b[30;43m",
+                    else => "\x1b[0m",
+                },
+                'R' => switch (stdout.items[j + 1]) {
+                    ' ' => "\x1b[35m",
+                    'D' => "\x1b[38;5;201m",
+                    'M' => "\x1b[38;5;93m",
+                    else => "\x1b[0m",
+                },
+                else => "\x1b[0m",
+            };
+            std.debug.print("{s}{s}\x1b[0m ", .{ color, stdout.items[j + 3 .. i] });
             j = i + 1;
             continue;
         }
