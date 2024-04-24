@@ -4,7 +4,7 @@ const git = @cImport(@cInclude("git2.h"));
 pub fn main() !void {
     _ = git.git_libgit2_init();
     var repo: ?*git.git_repository = undefined;
-    if (0 < git.git_repository_open_ext(&repo, ".", 0, null)) return;
+    if (git.git_repository_open_ext(&repo, ".", 0, null) == git.GIT_ENOTFOUND) return;
     var oid: git.git_oid = undefined;
     try log(repo, &oid);
     try status();
