@@ -75,7 +75,7 @@ fn state(repo: ?*git.git_repository) !void {
     };
     if (repo_state == git.GIT_REPOSITORY_STATE_MERGE) {
         const file = try std.fs.cwd().openFile(try std.fmt.allocPrintZ(std.heap.page_allocator, "{s}MERGE_MSG", .{git.git_repository_path(repo)}), .{});
-        var buf: [32]u8 = undefined;
+        var buf: [16]u8 = undefined;
         _ = try file.reader().readUntilDelimiterOrEof(&buf, '\'');
         _ = try file.reader().readUntilDelimiterOrEof(&buf, '\'');
         for (buf, 0..) |c, i| {
@@ -96,7 +96,7 @@ fn status() !void {
     _ = try child.spawn();
     var stdout = std.ArrayList(u8).init(std.heap.page_allocator);
     var stderr = std.ArrayList(u8).init(std.heap.page_allocator);
-    const max: usize = 1024 * 1024;
+    const max: usize = 1_000_000;
     _ = try std.ChildProcess.collectOutput(child, &stdout, &stderr, max);
     var j: usize = 0;
     for (stdout.items, 0..) |c, i| {
