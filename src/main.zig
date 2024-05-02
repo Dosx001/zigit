@@ -5,37 +5,35 @@ pub fn main() !void {
     _ = git.git_libgit2_init();
     var repo: ?*git.git_repository = undefined;
     if (git.git_repository_open_ext(&repo, ".", 0, null) == git.GIT_ENOTFOUND) return;
-    var oid: git.git_oid = undefined;
-    try log(repo, &oid);
+    try log(repo);
     try status();
     try state(repo);
-    try branch(repo, &oid);
+    try branch(repo);
     try stash(repo);
     return;
 }
 
-fn branch(repo: ?*git.git_repository, oid: *git.git_oid) !void {
-    var ref: ?*git.git_reference = undefined;
-    _ = git.git_repository_head(&ref, repo);
-    const name = git.git_reference_shorthand(ref);
-    for ("HEAD", 0..) |c, i| {
-        if (name[i] != c) break;
-    } else {
-        var output: [8]u8 = undefined;
-        _ = git.git_oid_tostr(&output, 8, oid);
-        std.debug.print("\x1b[30;41m {s} \x1b[0m", .{output});
-        return;
+fn branch(repo: ?*git.git_repository) !void {
+    const file = try std.fs.cwd().openFile(try std.fmt.allocPrint(std.heap.c_allocator, "{s}HEAD", .{git.git_repository_path(repo)}), .{});
+    var buffered = std.io.bufferedReader(file.reader());
+    var reader = buffered.reader();
+    var chars = std.ArrayList(u8).init(std.heap.c_allocator);
+    if (reader.streamUntilDelimiter(chars.writer(), '\n', 32) == error.StreamTooLong) {
+        return std.debug.print("\x1b[30;41m {s} \x1b[0m", .{chars.items[0..7]});
     }
-    std.debug.print("\x1b[30;41m {s} \x1b[0m", .{name});
+    std.debug.print("\x1b[30;41m {s} \x1b[0m", .{chars.items[16..chars.items.len]});
 }
 
-fn log(repo: ?*git.git_repository, oid: *git.git_oid) !void {
+fn log(repo: ?*git.git_repository) !void {
     var walker: ?*git.git_revwalk = undefined;
     _ = git.git_revwalk_new(&walker, repo);
-    _ = git.git_revwalk_push_ref(walker, "HEAD");
-    _ = git.git_revwalk_next(oid, walker);
+    if (git.git_revwalk_push_ref(walker, "HEAD") != 0) {
+        return std.debug.print("\n", .{});
+    }
+    var oid: git.git_oid = undefined;
+    _ = git.git_revwalk_next(&oid, walker);
     var commit: ?*git.git_commit = undefined;
-    _ = git.git_commit_lookup(&commit, repo, oid);
+    _ = git.git_commit_lookup(&commit, repo, &oid);
     std.debug.print("\x1b[90m{s}", .{git.git_commit_message(commit)});
 }
 
