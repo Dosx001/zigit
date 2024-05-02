@@ -72,16 +72,13 @@ fn state(repo: ?*git.git_repository) !void {
         else => return,
     };
     if (repo_state == git.GIT_REPOSITORY_STATE_MERGE) {
-        const file = try std.fs.cwd().openFile(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}MERGE_MSG", .{git.git_repository_path(repo)}), .{});
-        var buf: [16]u8 = undefined;
-        _ = try file.reader().readUntilDelimiterOrEof(&buf, '\'');
-        _ = try file.reader().readUntilDelimiterOrEof(&buf, '\'');
-        for (buf, 0..) |c, i| {
-            if (c == '\'') {
-                std.debug.print("\x1b[30;41m {s} \x1b[42;31m", .{buf[0..i]});
-                break;
-            }
-        }
+        const file = try std.fs.cwd().openFile(try std.fmt.allocPrint(std.heap.c_allocator, "{s}MERGE_MSG", .{git.git_repository_path(repo)}), .{});
+        var buffered = std.io.bufferedReader(file.reader());
+        var reader = buffered.reader();
+        try reader.skipBytes(14, .{});
+        var chars = std.ArrayList(u8).init(std.heap.c_allocator);
+        reader.streamUntilDelimiter(chars.writer(), '\'', 16) catch {};
+        std.debug.print("\x1b[30;41m {s} \x1b[42;31m", .{chars.items[0..chars.items.len]});
     }
     std.debug.print("\x1b[30;42m {s} \x1b[41;32m\x1b[30;41m", .{mode});
 }
