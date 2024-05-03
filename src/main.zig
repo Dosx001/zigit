@@ -97,49 +97,48 @@ fn status() !void {
     for (stdout.items, 0..) |c, i| {
         if (c == '\n') {
             const color = switch (stdout.items[j]) {
-                '?' => "\x1b[37m",
+                '?' => "37",
                 ' ' => switch (stdout.items[j + 1]) {
-                    'M' => "\x1b[33m",
-                    'D' => "\x1b[31m",
-                    else => "\x1b[0m",
+                    'M' => "33",
+                    'D' => "31",
+                    else => "",
                 },
                 'A' => switch (stdout.items[j + 1]) {
-                    ' ' => "\x1b[34m",
-                    'A' => "\x1b[37;44m",
-                    'D' => "\x1b[96m",
-                    'M' => "\x1b[94m",
-                    'U' => "\x1b[30;44m",
-                    else => "\x1b[0m",
+                    ' ' => "34",
+                    'A' => "37;44",
+                    'D' => "96",
+                    'M' => "94",
+                    'U' => "30;44",
+                    else => "",
                 },
                 'D' => switch (stdout.items[j + 1]) {
-                    ' ' => "\x1b[91m",
-                    'D' => "\x1b[37;41m",
-                    'U' => "\x1b[30;41m",
-                    else => "\x1b[0m",
+                    ' ' => "91",
+                    'D' => "37;41",
+                    'U' => "30;41",
+                    else => "",
                 },
                 'M' => switch (stdout.items[j + 1]) {
-                    ' ' => "\x1b[32m",
-                    'D' => "\x1b[38;5;202m",
-                    'M' => "\x1b[93m",
-                    else => "\x1b[0m",
+                    ' ' => "32",
+                    'D' => "38;5;202",
+                    'M' => "93",
+                    else => "",
                 },
                 'U' => switch (stdout.items[j + 1]) {
-                    'A' => "\x1b[33;44m",
-                    'D' => "\x1b[33;41m",
-                    'U' => "\x1b[30;43m",
-                    else => "\x1b[0m",
+                    'A' => "33;44",
+                    'D' => "33;41",
+                    'U' => "30;43",
+                    else => "",
                 },
                 'R' => switch (stdout.items[j + 1]) {
-                    ' ' => "\x1b[35m",
-                    'D' => "\x1b[38;5;201m",
-                    'M' => "\x1b[38;5;93m",
-                    else => "\x1b[0m",
+                    ' ' => "35",
+                    'D' => "38;5;201",
+                    'M' => "38;5;93",
+                    else => "",
                 },
-                else => "\x1b[0m",
+                else => "",
             };
-            std.debug.print("{s}{s}\x1b[0m ", .{ color, stdout.items[j + 3 .. i] });
+            std.debug.print("\x1b[{s}m{s}\x1b[0m ", .{ color, stdout.items[j + 3 .. i] });
             j = i + 1;
-            continue;
         }
     }
     if (j != 0) std.debug.print("\n", .{});
