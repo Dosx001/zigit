@@ -25,13 +25,11 @@ fn branch(repo: ?*git.git_repository) !void {
 }
 
 fn log(repo: ?*git.git_repository) !void {
-    var walker: ?*git.git_revwalk = undefined;
-    _ = git.git_revwalk_new(&walker, repo);
-    if (git.git_revwalk_push_ref(walker, "HEAD") != 0) {
-        return std.debug.print("\n", .{});
-    }
     var oid: git.git_oid = undefined;
-    _ = git.git_revwalk_next(&oid, walker);
+    if (git.git_reference_name_to_id(&oid, repo, "HEAD") != 0) {
+        std.debug.print("\n", .{});
+        return;
+    }
     var commit: ?*git.git_commit = undefined;
     _ = git.git_commit_lookup(&commit, repo, &oid);
     std.debug.print("\x1b[90m{s}\n", .{git.git_commit_summary(commit)});
