@@ -14,7 +14,7 @@ pub fn main() !void {
 }
 
 fn branch(repo: ?*git.git_repository) !void {
-    const file = try std.fs.cwd().openFile(try std.fmt.allocPrint(std.heap.c_allocator, "{s}HEAD", .{git.git_repository_path(repo)}), .{});
+    const file = try std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}HEAD", .{git.git_repository_path(repo)}), .{});
     var buffered = std.io.bufferedReader(file.reader());
     var reader = buffered.reader();
     var chars = std.ArrayList(u8).init(std.heap.c_allocator);
@@ -72,7 +72,7 @@ fn state(repo: ?*git.git_repository) !void {
         else => return,
     };
     if (repo_state == git.GIT_REPOSITORY_STATE_MERGE) {
-        const file = try std.fs.cwd().openFile(try std.fmt.allocPrint(std.heap.c_allocator, "{s}MERGE_MSG", .{git.git_repository_path(repo)}), .{});
+        const file = try std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}MERGE_MSG", .{git.git_repository_path(repo)}), .{});
         var buffered = std.io.bufferedReader(file.reader());
         var reader = buffered.reader();
         try reader.skipBytes(14, .{});
