@@ -83,14 +83,14 @@ fn state(repo: ?*git.git_repository) !void {
 
 fn status() !void {
     const args = [_][]const u8{ "git", "status", "-s" };
-    var child = std.ChildProcess.init(&args, std.heap.c_allocator);
+    var child = std.process.Child.init(&args, std.heap.c_allocator);
     child.stdout_behavior = .Pipe;
     child.stderr_behavior = .Pipe;
     _ = try child.spawn();
     var stdout = std.ArrayList(u8).init(std.heap.c_allocator);
     var stderr = std.ArrayList(u8).init(std.heap.c_allocator);
     const max: usize = 1_000_000;
-    _ = try std.ChildProcess.collectOutput(child, &stdout, &stderr, max);
+    _ = try std.process.Child.collectOutput(child, &stdout, &stderr, max);
     var j: usize = 0;
     for (stdout.items, 0..) |c, i| {
         if (c == '\n') {
