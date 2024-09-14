@@ -75,8 +75,8 @@ fn state(repo: ?*git.git_repository) !void {
         var reader = buffered.reader();
         try reader.skipBytes(14, .{});
         var chars = std.ArrayList(u8).init(std.heap.c_allocator);
-        reader.streamUntilDelimiter(chars.writer(), '\'', 16) catch {};
-        std.debug.print("\x1b[30;41m {s} \x1b[42;31m", .{chars.items[0..chars.items.len]});
+        try reader.streamUntilDelimiter(chars.writer(), '\'', null);
+        std.debug.print("\x1b[30;41m {s} \x1b[42;31m", .{chars.items});
     }
     std.debug.print("\x1b[30;42m {s} \x1b[41;32m\x1b[30;41m", .{mode});
 }
