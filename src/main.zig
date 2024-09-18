@@ -5,16 +5,17 @@ pub fn main() !void {
     _ = git.git_libgit2_init();
     var repo: ?*git.git_repository = undefined;
     if (git.git_repository_open_ext(&repo, ".", 0, null) == git.GIT_ENOTFOUND) return;
+    const path = git.git_repository_path(repo);
     try log(repo);
     try status();
-    try state(repo);
-    try branch(repo);
-    try stash(repo);
+    try state(repo, path);
+    try branch(path);
+    try stash(path);
     return;
 }
 
-fn branch(repo: ?*git.git_repository) !void {
-    const file = try std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}HEAD", .{git.git_repository_path(repo)}), .{});
+fn branch(path: [*c]const u8) !void {
+    const file = try std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}HEAD", .{path}), .{});
     var buffered = std.io.bufferedReader(file.reader());
     var reader = buffered.reader();
     var chars = std.ArrayList(u8).init(std.heap.c_allocator);
@@ -35,8 +36,8 @@ fn log(repo: ?*git.git_repository) !void {
     std.debug.print("\x1b[90m{s}\n", .{git.git_commit_summary(commit)});
 }
 
-fn stash(repo: ?*git.git_repository) !void {
-    const file = std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}logs/refs/stash", .{git.git_repository_path(repo)}), .{}) catch {
+fn stash(path: [*c]const u8) !void {
+    const file = std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}logs/refs/stash", .{path}), .{}) catch {
         std.debug.print("\x1b[31m\n", .{});
         return;
     };
@@ -49,7 +50,7 @@ fn stash(repo: ?*git.git_repository) !void {
     std.debug.print("\x1b[31;45m\x1b[30;45m Stashes: {} \x1b[0m\x1b[35m\n", .{count});
 }
 
-fn state(repo: ?*git.git_repository) !void {
+fn state(repo: ?*git.git_repository, path: [*c]const u8) !void {
     const repo_state = git.git_repository_state(repo);
     const mode =
         switch (repo_state) {
@@ -67,7 +68,7 @@ fn state(repo: ?*git.git_repository) !void {
         else => return,
     };
     if (repo_state == git.GIT_REPOSITORY_STATE_MERGE) {
-        const file = try std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}MERGE_MSG", .{git.git_repository_path(repo)}), .{});
+        const file = try std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}MERGE_MSG", .{path}), .{});
         var buffered = std.io.bufferedReader(file.reader());
         var reader = buffered.reader();
         try reader.skipBytes(14, .{});
@@ -86,8 +87,7 @@ fn status() !void {
     _ = try child.spawn();
     var stdout = std.ArrayList(u8).init(std.heap.c_allocator);
     var stderr = std.ArrayList(u8).init(std.heap.c_allocator);
-    const max: usize = 1_000_000;
-    _ = try std.process.Child.collectOutput(child, &stdout, &stderr, max);
+    _ = try std.process.Child.collectOutput(child, &stdout, &stderr, 1_000_000);
     var j: usize = 0;
     for (stdout.items, 0..) |c, i| {
         if (c == '\n') {
