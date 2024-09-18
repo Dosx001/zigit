@@ -36,20 +36,17 @@ fn log(repo: ?*git.git_repository) !void {
 }
 
 fn stash(repo: ?*git.git_repository) !void {
-    var count: u8 = 0;
-    _ = git.git_stash_foreach(repo, stash_cb, &count);
-    if (count == 0) {
+    const file = std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}logs/refs/stash", .{git.git_repository_path(repo)}), .{}) catch {
         std.debug.print("\x1b[31m\n", .{});
-    } else std.debug.print("\x1b[31;45m\x1b[30;45m Stashes: {} \x1b[0m\x1b[35m\n", .{count});
-}
-
-fn stash_cb(index: usize, message: [*c]const u8, stash_id: [*c]const git.git_oid, payload: ?*anyopaque) callconv(.C) c_int {
-    _ = index;
-    _ = stash_id;
-    _ = message;
-    const count: *u8 = @ptrCast(@alignCast(payload));
-    count.* += 1;
-    return 0;
+        return;
+    };
+    var buffered = std.io.bufferedReader(file.reader());
+    const reader = buffered.reader();
+    var line = std.ArrayList(u8).init(std.heap.c_allocator);
+    const writer = line.writer();
+    var count: u8 = 0;
+    while (reader.streamUntilDelimiter(writer, '\n', null) != error.EndOfStream) count += 1;
+    std.debug.print("\x1b[31;45m\x1b[30;45m Stashes: {} \x1b[0m\x1b[35m\n", .{count});
 }
 
 fn state(repo: ?*git.git_repository) !void {
