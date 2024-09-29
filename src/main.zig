@@ -6,23 +6,27 @@ pub fn main() !void {
     var repo: ?*git.git_repository = undefined;
     if (git.git_repository_open_ext(&repo, ".", 0, null) == git.GIT_ENOTFOUND) return;
     const path = git.git_repository_path(repo);
+    var array = std.ArrayList(u8).init(std.heap.c_allocator);
     try log(repo);
-    try status();
-    try state(repo, path);
-    try branch(path);
-    try stash(path);
+    try status(&array);
+    array.clearRetainingCapacity();
+    try state(repo, path, &array);
+    array.clearRetainingCapacity();
+    try branch(path, &array);
+    array.clearRetainingCapacity();
+    try stash(path, &array);
     return;
 }
 
-fn branch(path: [*c]const u8) !void {
+fn branch(path: [*c]const u8, array: *std.ArrayList(u8)) !void {
     const file = try std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}HEAD", .{path}), .{});
     var buffered = std.io.bufferedReader(file.reader());
     var reader = buffered.reader();
-    var chars = std.ArrayList(u8).init(std.heap.c_allocator);
-    if (reader.streamUntilDelimiter(chars.writer(), '\n', 32) == error.StreamTooLong) {
-        return std.debug.print("\x1b[30;41m {s} \x1b[0m", .{chars.items[0..7]});
+    const writer = array.writer();
+    if (reader.streamUntilDelimiter(writer, '\n', 32) == error.StreamTooLong) {
+        return std.debug.print("\x1b[30;41m {s} \x1b[0m", .{array.items[0..7]});
     }
-    std.debug.print("\x1b[30;41m {s} \x1b[0m", .{chars.items[16..chars.items.len]});
+    std.debug.print("\x1b[30;41m {s} \x1b[0m", .{array.items[16..array.items.len]});
 }
 
 fn log(repo: ?*git.git_repository) !void {
@@ -36,21 +40,20 @@ fn log(repo: ?*git.git_repository) !void {
     std.debug.print("\x1b[90m{s}\n", .{git.git_commit_summary(commit)});
 }
 
-fn stash(path: [*c]const u8) !void {
+fn stash(path: [*c]const u8, array: *std.ArrayList(u8)) !void {
     const file = std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}logs/refs/stash", .{path}), .{}) catch {
         std.debug.print("\x1b[31m\n", .{});
         return;
     };
     var buffered = std.io.bufferedReader(file.reader());
     const reader = buffered.reader();
-    var line = std.ArrayList(u8).init(std.heap.c_allocator);
-    const writer = line.writer();
+    const writer = array.writer();
     var count: u8 = 0;
     while (reader.streamUntilDelimiter(writer, '\n', null) != error.EndOfStream) count += 1;
     std.debug.print("\x1b[31;45m\x1b[30;45m Stashes: {} \x1b[0m\x1b[35m\n", .{count});
 }
 
-fn state(repo: ?*git.git_repository, path: [*c]const u8) !void {
+fn state(repo: ?*git.git_repository, path: [*c]const u8, array: *std.ArrayList(u8)) !void {
     const repo_state = git.git_repository_state(repo);
     const mode =
         switch (repo_state) {
@@ -72,28 +75,27 @@ fn state(repo: ?*git.git_repository, path: [*c]const u8) !void {
         var buffered = std.io.bufferedReader(file.reader());
         var reader = buffered.reader();
         try reader.skipBytes(14, .{});
-        var chars = std.ArrayList(u8).init(std.heap.c_allocator);
-        try reader.streamUntilDelimiter(chars.writer(), '\'', null);
-        std.debug.print("\x1b[30;41m {s} \x1b[42;31m", .{chars.items});
+        const writer = array.writer();
+        try reader.streamUntilDelimiter(writer, '\'', null);
+        std.debug.print("\x1b[30;41m {s} \x1b[42;31m", .{array.items});
     }
     std.debug.print("\x1b[30;42m {s} \x1b[41;32m\x1b[30;41m", .{mode});
 }
 
-fn status() !void {
+fn status(array: *std.ArrayList(u8)) !void {
     const args = [_][]const u8{ "git", "status", "-s" };
     var child = std.process.Child.init(&args, std.heap.c_allocator);
     child.stdout_behavior = .Pipe;
     child.stderr_behavior = .Pipe;
     _ = try child.spawn();
-    var stdout = std.ArrayList(u8).init(std.heap.c_allocator);
     var stderr = std.ArrayList(u8).init(std.heap.c_allocator);
-    _ = try std.process.Child.collectOutput(child, &stdout, &stderr, 1_000_000);
+    _ = try std.process.Child.collectOutput(child, array, &stderr, 1_000_000);
     var j: usize = 0;
-    for (stdout.items, 0..) |c, i| {
+    for (array.items, 0..) |c, i| {
         if (c == '\n') {
-            const color = switch (stdout.items[j]) {
+            const color = switch (array.items[j]) {
                 '?' => "38;2;204;204;204",
-                ' ' => switch (stdout.items[j + 1]) {
+                ' ' => switch (array.items[j + 1]) {
                     '?' => "38;2;204;204;204",
                     'm' => "38;2;255;255;0",
                     'M' => "38;2;193;156;0",
@@ -101,7 +103,7 @@ fn status() !void {
                     'T' => "38;2;165;42;42",
                     else => "",
                 },
-                'A' => switch (stdout.items[j + 1]) {
+                'A' => switch (array.items[j + 1]) {
                     '?' => "38;2;204;204;204",
                     ' ' => "38;2;0;55;218",
                     'm' => "38;2;30;144;255",
@@ -112,33 +114,33 @@ fn status() !void {
                     'T' => "38;2;95;158;168",
                     else => "",
                 },
-                'D' => switch (stdout.items[j + 1]) {
+                'D' => switch (array.items[j + 1]) {
                     ' ' => "38;2;231;72;86",
                     'D' => "38;2;0;0;0m\x1b[48;2;197;15;31",
                     'U' => "38;2;193;156;0m\x1b[48;2;197;15;31",
                     else => "",
                 },
-                'M' => switch (stdout.items[j + 1]) {
+                'M' => switch (array.items[j + 1]) {
                     ' ' => "38;2;19;161;14",
                     'D' => "38;2;255;95;0",
                     'M' => "38;2;249;241;165",
                     'T' => "38;2;244;164;96",
                     else => "",
                 },
-                'U' => switch (stdout.items[j + 1]) {
+                'U' => switch (array.items[j + 1]) {
                     'A' => "38;2;204;204;204m\x1b[48;2;0;55;218",
                     'D' => "38;2;204;204;204m\x1b[48;2;197;15;31",
                     'U' => "38;2;0;0;0m\x1b[48;2;193;156;0",
                     else => "",
                 },
-                'R' => switch (stdout.items[j + 1]) {
+                'R' => switch (array.items[j + 1]) {
                     ' ' => "38;2;136;23;152",
                     'D' => "38;2;255;0;255",
                     'M' => "38;2;135;0;255",
                     'T' => "38;2;238;130;238",
                     else => "",
                 },
-                'T' => switch (stdout.items[j + 1]) {
+                'T' => switch (array.items[j + 1]) {
                     ' ' => "38;2;210;105;30",
                     'D' => "38;2;240;128;128",
                     'M' => "38;2;255;215;0",
@@ -147,7 +149,7 @@ fn status() !void {
                 },
                 else => "",
             };
-            std.debug.print("\x1b[{s}m{s}\x1b[0m ", .{ color, stdout.items[j + 3 .. i] });
+            std.debug.print("\x1b[{s}m{s}\x1b[0m ", .{ color, array.items[j + 3 .. i] });
             j = i + 1;
         }
     }
