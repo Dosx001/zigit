@@ -64,7 +64,7 @@ fn state(repo: ?*git.git_repository, path: [*c]const u8, array: *std.ArrayList(u
         git.GIT_REPOSITORY_STATE_CHERRYPICK_SEQUENCE => "Cherrypick",
         git.GIT_REPOSITORY_STATE_BISECT => "Bisect",
         git.GIT_REPOSITORY_STATE_REBASE => "Rebase",
-        git.GIT_REPOSITORY_STATE_REBASE_INTERACTIVE => "Rebase Interactive",
+        git.GIT_REPOSITORY_STATE_REBASE_INTERACTIVE => "Rebase",
         git.GIT_REPOSITORY_STATE_REBASE_MERGE => "Rebase/Merge",
         git.GIT_REPOSITORY_STATE_APPLY_MAILBOX => "Mailbox",
         git.GIT_REPOSITORY_STATE_APPLY_MAILBOX_OR_REBASE => "Mailbox or Rebase",
