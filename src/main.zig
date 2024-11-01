@@ -1,28 +1,32 @@
 const std = @import("std");
 const git = @cImport(@cInclude("git2.h"));
 
-pub fn main() !void {
+pub fn main() void {
     _ = git.git_libgit2_init();
     var repo: ?*git.git_repository = undefined;
     if (git.git_repository_open_ext(&repo, ".", 0, null) == git.GIT_ENOTFOUND) return;
     const path = git.git_repository_path(repo);
     var array = std.ArrayList(u8).init(std.heap.c_allocator);
-    try log(repo);
-    try status(&array);
+    log(repo);
+    status(&array);
     array.clearRetainingCapacity();
-    try state(repo, path, &array);
+    state(repo, path, &array);
     array.clearRetainingCapacity();
-    try branch(path, &array);
+    branch(path, &array);
     array.clearRetainingCapacity();
-    try stash(path, &array);
+    stash(path, &array);
     return;
 }
 
-fn branch(path: [*c]const u8, array: *std.ArrayList(u8)) !void {
-    const file = try std.fs.openFileAbsoluteZ(
-        try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}HEAD", .{path}),
+fn branch(path: [*c]const u8, array: *std.ArrayList(u8)) void {
+    const file = std.fs.openFileAbsoluteZ(
+        std.fmt.allocPrintZ(
+            std.heap.c_allocator,
+            "{s}HEAD",
+            .{path},
+        ) catch unreachable,
         .{},
-    );
+    ) catch unreachable;
     var buffered = std.io.bufferedReader(file.reader());
     var reader = buffered.reader();
     const writer = array.writer();
@@ -38,7 +42,7 @@ fn branch(path: [*c]const u8, array: *std.ArrayList(u8)) !void {
     );
 }
 
-fn log(repo: ?*git.git_repository) !void {
+fn log(repo: ?*git.git_repository) void {
     var oid: git.git_oid = undefined;
     if (git.git_reference_name_to_id(&oid, repo, "HEAD") != 0) {
         std.debug.print("\n", .{});
@@ -49,14 +53,19 @@ fn log(repo: ?*git.git_repository) !void {
     std.debug.print("\x1b[90m{s}\n", .{git.git_commit_summary(commit)});
 }
 
-fn stash(path: [*c]const u8, array: *std.ArrayList(u8)) !void {
-    const file = std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(
+fn stash(path: [*c]const u8, array: *std.ArrayList(u8)) void {
+    const file = std.fs.openFileAbsoluteZ(std.fmt.allocPrintZ(
         std.heap.c_allocator,
         "{s}logs/refs/stash",
         .{path},
-    ), .{}) catch {
-        std.debug.print("\x1b[31m\n", .{});
-        return;
+    ) catch unreachable, .{}) catch |e| {
+        switch (e) {
+            error.FileNotFound => {
+                std.debug.print("\x1b[31m\n", .{});
+                return;
+            },
+            else => unreachable,
+        }
     };
     var buffered = std.io.bufferedReader(file.reader());
     const reader = buffered.reader();
@@ -77,7 +86,7 @@ fn state(
     repo: ?*git.git_repository,
     path: [*c]const u8,
     array: *std.ArrayList(u8),
-) !void {
+) void {
     const repo_state = git.git_repository_state(repo);
     const mode =
         switch (repo_state) {
@@ -95,15 +104,19 @@ fn state(
         else => return,
     };
     if (repo_state == git.GIT_REPOSITORY_STATE_MERGE) {
-        const file = try std.fs.openFileAbsoluteZ(
-            try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}MERGE_MSG", .{path}),
+        const file = std.fs.openFileAbsoluteZ(
+            std.fmt.allocPrintZ(
+                std.heap.c_allocator,
+                "{s}MERGE_MSG",
+                .{path},
+            ) catch unreachable,
             .{},
-        );
+        ) catch unreachable;
         var buffered = std.io.bufferedReader(file.reader());
         var reader = buffered.reader();
-        try reader.skipBytes(14, .{});
+        reader.skipBytes(14, .{}) catch unreachable;
         const writer = array.writer();
-        try reader.streamUntilDelimiter(writer, '\'', null);
+        reader.streamUntilDelimiter(writer, '\'', null) catch unreachable;
         std.debug.print(
             "\x1b[30;41m {s} \x1b[42;31m",
             .{array.items},
@@ -115,14 +128,19 @@ fn state(
     );
 }
 
-fn status(array: *std.ArrayList(u8)) !void {
+fn status(array: *std.ArrayList(u8)) void {
     const args = [_][]const u8{ "git", "status", "-s" };
     var child = std.process.Child.init(&args, std.heap.c_allocator);
     child.stdout_behavior = .Pipe;
     child.stderr_behavior = .Pipe;
-    _ = try child.spawn();
+    _ = child.spawn() catch unreachable;
     var stderr = std.ArrayList(u8).init(std.heap.c_allocator);
-    _ = try std.process.Child.collectOutput(child, array, &stderr, 1_000_000);
+    _ = std.process.Child.collectOutput(
+        child,
+        array,
+        &stderr,
+        1_000_000,
+    ) catch unreachable;
     var j: usize = 0;
     for (array.items, 0..) |c, i| {
         if (c == '\n') {
