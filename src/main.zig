@@ -19,14 +19,23 @@ pub fn main() !void {
 }
 
 fn branch(path: [*c]const u8, array: *std.ArrayList(u8)) !void {
-    const file = try std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}HEAD", .{path}), .{});
+    const file = try std.fs.openFileAbsoluteZ(
+        try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}HEAD", .{path}),
+        .{},
+    );
     var buffered = std.io.bufferedReader(file.reader());
     var reader = buffered.reader();
     const writer = array.writer();
     if (reader.streamUntilDelimiter(writer, '\n', 32) == error.StreamTooLong) {
-        return std.debug.print("\x1b[30;41m {s} \x1b[0m", .{array.items[0..7]});
+        return std.debug.print(
+            "\x1b[30;41m {s} \x1b[0m",
+            .{array.items[0..7]},
+        );
     }
-    std.debug.print("\x1b[30;41m {s} \x1b[0m", .{array.items[16..array.items.len]});
+    std.debug.print(
+        "\x1b[30;41m {s} \x1b[0m",
+        .{array.items[16..array.items.len]},
+    );
 }
 
 fn log(repo: ?*git.git_repository) !void {
@@ -41,7 +50,11 @@ fn log(repo: ?*git.git_repository) !void {
 }
 
 fn stash(path: [*c]const u8, array: *std.ArrayList(u8)) !void {
-    const file = std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}logs/refs/stash", .{path}), .{}) catch {
+    const file = std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(
+        std.heap.c_allocator,
+        "{s}logs/refs/stash",
+        .{path},
+    ), .{}) catch {
         std.debug.print("\x1b[31m\n", .{});
         return;
     };
@@ -49,11 +62,22 @@ fn stash(path: [*c]const u8, array: *std.ArrayList(u8)) !void {
     const reader = buffered.reader();
     const writer = array.writer();
     var count: u8 = 0;
-    while (reader.streamUntilDelimiter(writer, '\n', null) != error.EndOfStream) count += 1;
-    std.debug.print("\x1b[31;45m\x1b[30;45m Stashes: {} \x1b[0m\x1b[35m\n", .{count});
+    while (reader.streamUntilDelimiter(
+        writer,
+        '\n',
+        null,
+    ) != error.EndOfStream) count += 1;
+    std.debug.print(
+        "\x1b[31;45m\x1b[30;45m Stashes: {} \x1b[0m\x1b[35m\n",
+        .{count},
+    );
 }
 
-fn state(repo: ?*git.git_repository, path: [*c]const u8, array: *std.ArrayList(u8)) !void {
+fn state(
+    repo: ?*git.git_repository,
+    path: [*c]const u8,
+    array: *std.ArrayList(u8),
+) !void {
     const repo_state = git.git_repository_state(repo);
     const mode =
         switch (repo_state) {
@@ -71,15 +95,24 @@ fn state(repo: ?*git.git_repository, path: [*c]const u8, array: *std.ArrayList(u
         else => return,
     };
     if (repo_state == git.GIT_REPOSITORY_STATE_MERGE) {
-        const file = try std.fs.openFileAbsoluteZ(try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}MERGE_MSG", .{path}), .{});
+        const file = try std.fs.openFileAbsoluteZ(
+            try std.fmt.allocPrintZ(std.heap.c_allocator, "{s}MERGE_MSG", .{path}),
+            .{},
+        );
         var buffered = std.io.bufferedReader(file.reader());
         var reader = buffered.reader();
         try reader.skipBytes(14, .{});
         const writer = array.writer();
         try reader.streamUntilDelimiter(writer, '\'', null);
-        std.debug.print("\x1b[30;41m {s} \x1b[42;31m", .{array.items});
+        std.debug.print(
+            "\x1b[30;41m {s} \x1b[42;31m",
+            .{array.items},
+        );
     }
-    std.debug.print("\x1b[30;42m {s} \x1b[41;32m\x1b[30;41m", .{mode});
+    std.debug.print(
+        "\x1b[30;42m {s} \x1b[41;32m\x1b[30;41m",
+        .{mode},
+    );
 }
 
 fn status(array: *std.ArrayList(u8)) !void {
@@ -149,7 +182,10 @@ fn status(array: *std.ArrayList(u8)) !void {
                 },
                 else => "",
             };
-            std.debug.print("\x1b[{s}m{s}\x1b[0m ", .{ color, array.items[j + 3 .. i] });
+            std.debug.print(
+                "\x1b[{s}m{s}\x1b[0m ",
+                .{ color, array.items[j + 3 .. i] },
+            );
             j = i + 1;
         }
     }
