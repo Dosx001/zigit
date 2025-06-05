@@ -19,8 +19,8 @@ pub fn main() void {
 }
 
 fn branch(path: [*c]const u8, array: *std.ArrayList(u8)) void {
-    const file = std.fs.openFileAbsoluteZ(
-        std.fmt.allocPrintZ(
+    const file = std.fs.openFileAbsolute(
+        std.fmt.allocPrint(
             std.heap.c_allocator,
             "{s}HEAD",
             .{path},
@@ -54,7 +54,7 @@ fn log(repo: ?*git.git_repository) void {
 }
 
 fn stash(path: [*c]const u8, array: *std.ArrayList(u8)) void {
-    const file = std.fs.openFileAbsoluteZ(std.fmt.allocPrintZ(
+    const file = std.fs.openFileAbsolute(std.fmt.allocPrint(
         std.heap.c_allocator,
         "{s}logs/refs/stash",
         .{path},
@@ -104,8 +104,8 @@ fn state(
         else => return,
     };
     if (repo_state == git.GIT_REPOSITORY_STATE_MERGE) {
-        const file = std.fs.openFileAbsoluteZ(
-            std.fmt.allocPrintZ(
+        const file = std.fs.openFileAbsolute(
+            std.fmt.allocPrint(
                 std.heap.c_allocator,
                 "{s}MERGE_MSG",
                 .{path},
