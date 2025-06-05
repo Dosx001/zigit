@@ -9,7 +9,7 @@ pub fn build(b: *std.Build) void {
             .preferred_optimize_mode = .ReleaseFast,
         }),
     });
-    exe.linkSystemLibrary("c");
+    exe.linkLibC();
     exe.linkSystemLibrary("git2");
     b.installArtifact(exe);
     const run_exe = b.addRunArtifact(exe);

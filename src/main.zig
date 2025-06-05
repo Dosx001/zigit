@@ -4,11 +4,19 @@ const git = @cImport(@cInclude("git2.h"));
 pub fn main() void {
     _ = git.git_libgit2_init();
     var repo: ?*git.git_repository = undefined;
-    if (git.git_repository_open_ext(&repo, ".", 0, null) == git.GIT_ENOTFOUND) return;
+    if (git.git_repository_open_ext(
+        &repo,
+        ".",
+        0,
+        null,
+    ) == git.GIT_ENOTFOUND) return;
     const path = git.git_repository_path(repo);
-    var array = std.ArrayList(u8).init(std.heap.c_allocator);
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const alloc = gpa.allocator();
+    var array = std.ArrayList(u8).init(alloc);
+    array.ensureTotalCapacity(256) catch unreachable;
     log(repo);
-    status(&array);
+    status(&array, alloc);
     array.clearRetainingCapacity();
     state(repo, path, &array);
     array.clearRetainingCapacity();
@@ -128,13 +136,13 @@ fn state(
     );
 }
 
-fn status(array: *std.ArrayList(u8)) void {
+fn status(array: *std.ArrayList(u8), allocator: std.mem.Allocator) void {
     const args = [_][]const u8{ "git", "status", "-s" };
     var child = std.process.Child.init(&args, std.heap.c_allocator);
     child.stdout_behavior = .Pipe;
     child.stderr_behavior = .Pipe;
     _ = child.spawn() catch unreachable;
-    var stderr = std.ArrayList(u8).init(std.heap.c_allocator);
+    var stderr = std.ArrayList(u8).init(allocator);
     _ = std.process.Child.collectOutput(
         child,
         array,
