@@ -38,7 +38,11 @@ fn branch(path: [*c]const u8, array: *std.ArrayList(u8)) void {
     var buffered = std.io.bufferedReader(file.reader());
     var reader = buffered.reader();
     const writer = array.writer();
-    if (reader.streamUntilDelimiter(writer, '\n', 32) == error.StreamTooLong) {
+    if (reader.streamUntilDelimiter(
+        writer,
+        '\n',
+        32,
+    ) == error.StreamTooLong) {
         return std.debug.print(
             "\x1b[30;41m {s} \x1b[0m",
             .{array.items[0..7]},
@@ -52,13 +56,20 @@ fn branch(path: [*c]const u8, array: *std.ArrayList(u8)) void {
 
 fn log(repo: ?*git.git_repository) void {
     var oid: git.git_oid = undefined;
-    if (git.git_reference_name_to_id(&oid, repo, "HEAD") != 0) {
+    if (git.git_reference_name_to_id(
+        &oid,
+        repo,
+        "HEAD",
+    ) != 0) {
         std.debug.print("\n", .{});
         return;
     }
     var commit: ?*git.git_commit = undefined;
     _ = git.git_commit_lookup(&commit, repo, &oid);
-    std.debug.print("\x1b[90m{s}\n", .{git.git_commit_summary(commit)});
+    std.debug.print(
+        "\x1b[90m{s}\n",
+        .{git.git_commit_summary(commit)},
+    );
 }
 
 fn stash(path: [*c]const u8, array: *std.ArrayList(u8)) void {
@@ -98,19 +109,19 @@ fn state(
     const repo_state = git.git_repository_state(repo);
     const mode =
         switch (repo_state) {
-        git.GIT_REPOSITORY_STATE_MERGE => "Merging onto",
-        git.GIT_REPOSITORY_STATE_REVERT => "Revert",
-        git.GIT_REPOSITORY_STATE_REVERT_SEQUENCE => "Revert",
-        git.GIT_REPOSITORY_STATE_CHERRYPICK => "Cherrypick",
-        git.GIT_REPOSITORY_STATE_CHERRYPICK_SEQUENCE => "Cherrypick",
-        git.GIT_REPOSITORY_STATE_BISECT => "Bisect",
-        git.GIT_REPOSITORY_STATE_REBASE => "Rebase",
-        git.GIT_REPOSITORY_STATE_REBASE_INTERACTIVE => "Rebase",
-        git.GIT_REPOSITORY_STATE_REBASE_MERGE => "Rebase/Merge",
-        git.GIT_REPOSITORY_STATE_APPLY_MAILBOX => "Mailbox",
-        git.GIT_REPOSITORY_STATE_APPLY_MAILBOX_OR_REBASE => "Mailbox or Rebase",
-        else => return,
-    };
+            git.GIT_REPOSITORY_STATE_MERGE => "Merging onto",
+            git.GIT_REPOSITORY_STATE_REVERT => "Revert",
+            git.GIT_REPOSITORY_STATE_REVERT_SEQUENCE => "Revert",
+            git.GIT_REPOSITORY_STATE_CHERRYPICK => "Cherrypick",
+            git.GIT_REPOSITORY_STATE_CHERRYPICK_SEQUENCE => "Cherrypick",
+            git.GIT_REPOSITORY_STATE_BISECT => "Bisect",
+            git.GIT_REPOSITORY_STATE_REBASE => "Rebase",
+            git.GIT_REPOSITORY_STATE_REBASE_INTERACTIVE => "Rebase",
+            git.GIT_REPOSITORY_STATE_REBASE_MERGE => "Rebase/Merge",
+            git.GIT_REPOSITORY_STATE_APPLY_MAILBOX => "Mailbox",
+            git.GIT_REPOSITORY_STATE_APPLY_MAILBOX_OR_REBASE => "Mailbox or Rebase",
+            else => return,
+        };
     if (repo_state == git.GIT_REPOSITORY_STATE_MERGE) {
         const file = std.fs.openFileAbsolute(
             std.fmt.allocPrint(
@@ -124,7 +135,11 @@ fn state(
         var reader = buffered.reader();
         reader.skipBytes(14, .{}) catch unreachable;
         const writer = array.writer();
-        reader.streamUntilDelimiter(writer, '\'', null) catch unreachable;
+        reader.streamUntilDelimiter(
+            writer,
+            '\'',
+            null,
+        ) catch unreachable;
         std.debug.print(
             "\x1b[30;41m {s} \x1b[42;31m",
             .{array.items},
@@ -136,9 +151,15 @@ fn state(
     );
 }
 
-fn status(array: *std.ArrayList(u8), allocator: std.mem.Allocator) void {
+fn status(
+    array: *std.ArrayList(u8),
+    allocator: std.mem.Allocator,
+) void {
     const args = [_][]const u8{ "git", "status", "-s" };
-    var child = std.process.Child.init(&args, std.heap.c_allocator);
+    var child = std.process.Child.init(
+        &args,
+        std.heap.c_allocator,
+    );
     child.stdout_behavior = .Pipe;
     child.stderr_behavior = .Pipe;
     _ = child.spawn() catch unreachable;
