@@ -11,12 +11,13 @@ pub fn main() void {
         null,
     ) == git.GIT_ENOTFOUND) return;
     const path = git.git_repository_path(repo);
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const alloc = gpa.allocator();
-    var array = std.ArrayList(u8).init(alloc);
-    array.ensureTotalCapacity(256) catch unreachable;
+    var array = std.ArrayListAlignedUnmanaged(u8, 1){};
+    array.ensureTotalCapacity(
+        std.heap.c_allocator,
+        1024,
+    ) catch unreachable;
     log(repo);
-    status(&array, alloc);
+    status(&array);
     array.clearRetainingCapacity();
     state(repo, path, &array);
     array.clearRetainingCapacity();
@@ -26,7 +27,10 @@ pub fn main() void {
     return;
 }
 
-fn branch(path: [*c]const u8, array: *std.ArrayList(u8)) void {
+fn branch(
+    path: [*c]const u8,
+    array: *std.ArrayListAlignedUnmanaged(u8, 1),
+) void {
     const file = std.fs.openFileAbsolute(
         std.fmt.allocPrint(
             std.heap.c_allocator,
@@ -37,7 +41,7 @@ fn branch(path: [*c]const u8, array: *std.ArrayList(u8)) void {
     ) catch unreachable;
     var buffered = std.io.bufferedReader(file.reader());
     var reader = buffered.reader();
-    const writer = array.writer();
+    const writer = array.writer(std.heap.c_allocator);
     if (reader.streamUntilDelimiter(
         writer,
         '\n',
@@ -72,7 +76,10 @@ fn log(repo: ?*git.git_repository) void {
     );
 }
 
-fn stash(path: [*c]const u8, array: *std.ArrayList(u8)) void {
+fn stash(
+    path: [*c]const u8,
+    array: *std.ArrayListAlignedUnmanaged(u8, 1),
+) void {
     const file = std.fs.openFileAbsolute(std.fmt.allocPrint(
         std.heap.c_allocator,
         "{s}logs/refs/stash",
@@ -88,7 +95,7 @@ fn stash(path: [*c]const u8, array: *std.ArrayList(u8)) void {
     };
     var buffered = std.io.bufferedReader(file.reader());
     const reader = buffered.reader();
-    const writer = array.writer();
+    const writer = array.writer(std.heap.c_allocator);
     var count: u8 = 0;
     while (reader.streamUntilDelimiter(
         writer,
@@ -104,7 +111,7 @@ fn stash(path: [*c]const u8, array: *std.ArrayList(u8)) void {
 fn state(
     repo: ?*git.git_repository,
     path: [*c]const u8,
-    array: *std.ArrayList(u8),
+    array: *std.ArrayListAlignedUnmanaged(u8, 1),
 ) void {
     const repo_state = git.git_repository_state(repo);
     const mode =
@@ -134,7 +141,7 @@ fn state(
         var buffered = std.io.bufferedReader(file.reader());
         var reader = buffered.reader();
         reader.skipBytes(14, .{}) catch unreachable;
-        const writer = array.writer();
+        const writer = array.writer(std.heap.c_allocator);
         reader.streamUntilDelimiter(
             writer,
             '\'',
@@ -151,10 +158,7 @@ fn state(
     );
 }
 
-fn status(
-    array: *std.ArrayList(u8),
-    allocator: std.mem.Allocator,
-) void {
+fn status(array: *std.ArrayListAlignedUnmanaged(u8, 1)) void {
     const args = [_][]const u8{ "git", "status", "-s" };
     var child = std.process.Child.init(
         &args,
@@ -163,10 +167,11 @@ fn status(
     child.stdout_behavior = .Pipe;
     child.stderr_behavior = .Pipe;
     _ = child.spawn() catch unreachable;
-    var stderr = std.ArrayList(u8).init(allocator);
+    var stderr = std.ArrayListAlignedUnmanaged(u8, null){};
     _ = std.process.Child.collectOutput(
         child,
-        array,
+        std.heap.c_allocator,
+        @ptrCast(array),
         &stderr,
         1_000_000,
     ) catch unreachable;
