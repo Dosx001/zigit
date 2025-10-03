@@ -11,25 +11,18 @@ pub fn main() void {
         null,
     ) == git.GIT_ENOTFOUND) return;
     const path = git.git_repository_path(repo);
-    var array = std.ArrayListAlignedUnmanaged(u8, 1){};
-    array.ensureTotalCapacity(
-        std.heap.c_allocator,
-        1024,
-    ) catch unreachable;
+    var buffer: [1024]u8 = undefined;
     log(repo);
-    status(&array);
-    array.clearRetainingCapacity();
-    state(repo, path, &array);
-    array.clearRetainingCapacity();
-    branch(path, &array);
-    array.clearRetainingCapacity();
-    stash(path, &array);
+    status();
+    state(repo, path, &buffer);
+    branch(path, &buffer);
+    stash(path, &buffer);
     return;
 }
 
 fn branch(
     path: [*c]const u8,
-    array: *std.ArrayListAlignedUnmanaged(u8, 1),
+    buffer: []u8,
 ) void {
     const file = std.fs.openFileAbsolute(
         std.fmt.allocPrint(
@@ -39,22 +32,20 @@ fn branch(
         ) catch unreachable,
         .{},
     ) catch unreachable;
-    var buffered = std.io.bufferedReader(file.reader());
-    var reader = buffered.reader();
-    const writer = array.writer(std.heap.c_allocator);
-    if (reader.streamUntilDelimiter(
-        writer,
+    var reader = file.reader(buffer);
+    const len = reader.interface.discardDelimiterLimit(
         '\n',
-        32,
-    ) == error.StreamTooLong) {
-        return std.debug.print(
+        std.Io.Limit.limited(32),
+    ) catch |e| switch (e) {
+        error.StreamTooLong => return std.debug.print(
             "\x1b[30;41m {s} \x1b[0m",
-            .{array.items[0..7]},
-        );
-    }
+            .{buffer[0..7]},
+        ),
+        else => unreachable,
+    };
     std.debug.print(
         "\x1b[30;41m {s} \x1b[0m",
-        .{array.items[16..array.items.len]},
+        .{buffer[16..len]},
     );
 }
 
@@ -78,7 +69,7 @@ fn log(repo: ?*git.git_repository) void {
 
 fn stash(
     path: [*c]const u8,
-    array: *std.ArrayListAlignedUnmanaged(u8, 1),
+    buffer: []u8,
 ) void {
     const file = std.fs.openFileAbsolute(std.fmt.allocPrint(
         std.heap.c_allocator,
@@ -93,14 +84,10 @@ fn stash(
             else => unreachable,
         }
     };
-    var buffered = std.io.bufferedReader(file.reader());
-    const reader = buffered.reader();
-    const writer = array.writer(std.heap.c_allocator);
+    var reader = file.reader(buffer);
     var count: u8 = 0;
-    while (reader.streamUntilDelimiter(
-        writer,
+    while (reader.interface.takeDelimiterExclusive(
         '\n',
-        null,
     ) != error.EndOfStream) count += 1;
     std.debug.print(
         "\x1b[31;45m\x1b[30;45m Stashes: {} \x1b[0m\x1b[35m\n",
@@ -111,7 +98,7 @@ fn stash(
 fn state(
     repo: ?*git.git_repository,
     path: [*c]const u8,
-    array: *std.ArrayListAlignedUnmanaged(u8, 1),
+    buffer: []u8,
 ) void {
     const repo_state = git.git_repository_state(repo);
     const mode =
@@ -138,18 +125,13 @@ fn state(
             ) catch unreachable,
             .{},
         ) catch unreachable;
-        var buffered = std.io.bufferedReader(file.reader());
-        var reader = buffered.reader();
-        reader.skipBytes(14, .{}) catch unreachable;
-        const writer = array.writer(std.heap.c_allocator);
-        reader.streamUntilDelimiter(
-            writer,
-            '\'',
-            null,
-        ) catch unreachable;
+        var reader = file.reader(buffer);
+        reader.interface.discardAll(14) catch unreachable;
         std.debug.print(
             "\x1b[30;41m {s} \x1b[42;31m",
-            .{array.items},
+            .{reader.interface.takeDelimiterExclusive(
+                '\'',
+            ) catch unreachable},
         );
     }
     std.debug.print(
@@ -158,7 +140,7 @@ fn state(
     );
 }
 
-fn status(array: *std.ArrayListAlignedUnmanaged(u8, 1)) void {
+fn status() void {
     const args = [_][]const u8{ "git", "status", "-s" };
     var child = std.process.Child.init(
         &args,
@@ -168,19 +150,23 @@ fn status(array: *std.ArrayListAlignedUnmanaged(u8, 1)) void {
     child.stderr_behavior = .Pipe;
     _ = child.spawn() catch unreachable;
     var stderr = std.ArrayListAlignedUnmanaged(u8, null){};
+    var stdout = std.ArrayListAlignedUnmanaged(u8, std.mem.Alignment.@"1").initCapacity(
+        std.heap.c_allocator,
+        1024,
+    ) catch unreachable;
     _ = std.process.Child.collectOutput(
         child,
         std.heap.c_allocator,
-        @ptrCast(array),
+        &stdout,
         &stderr,
-        1_000_000,
+        1_048_576,
     ) catch unreachable;
     var j: usize = 0;
-    for (array.items, 0..) |c, i| {
+    for (stdout.items, 0..) |c, i| {
         if (c == '\n') {
-            const color = switch (array.items[j]) {
+            const color = switch (stdout.items[j]) {
                 '?' => "38;2;204;204;204",
-                ' ' => switch (array.items[j + 1]) {
+                ' ' => switch (stdout.items[j + 1]) {
                     '?' => "38;2;204;204;204",
                     'm' => "38;2;255;255;0",
                     'M' => "38;2;193;156;0",
@@ -188,7 +174,7 @@ fn status(array: *std.ArrayListAlignedUnmanaged(u8, 1)) void {
                     'T' => "38;2;165;42;42",
                     else => "",
                 },
-                'A' => switch (array.items[j + 1]) {
+                'A' => switch (stdout.items[j + 1]) {
                     '?' => "38;2;204;204;204",
                     ' ' => "38;2;0;55;218",
                     'm' => "38;2;30;144;255",
@@ -199,33 +185,33 @@ fn status(array: *std.ArrayListAlignedUnmanaged(u8, 1)) void {
                     'T' => "38;2;95;158;168",
                     else => "",
                 },
-                'D' => switch (array.items[j + 1]) {
+                'D' => switch (stdout.items[j + 1]) {
                     ' ' => "38;2;231;72;86",
                     'D' => "38;2;0;0;0m\x1b[48;2;197;15;31",
                     'U' => "38;2;193;156;0m\x1b[48;2;197;15;31",
                     else => "",
                 },
-                'M' => switch (array.items[j + 1]) {
+                'M' => switch (stdout.items[j + 1]) {
                     ' ' => "38;2;19;161;14",
                     'D' => "38;2;255;95;0",
                     'M' => "38;2;249;241;165",
                     'T' => "38;2;244;164;96",
                     else => "",
                 },
-                'U' => switch (array.items[j + 1]) {
+                'U' => switch (stdout.items[j + 1]) {
                     'A' => "38;2;204;204;204m\x1b[48;2;0;55;218",
                     'D' => "38;2;204;204;204m\x1b[48;2;197;15;31",
                     'U' => "38;2;0;0;0m\x1b[48;2;193;156;0",
                     else => "",
                 },
-                'R' => switch (array.items[j + 1]) {
+                'R' => switch (stdout.items[j + 1]) {
                     ' ' => "38;2;136;23;152",
                     'D' => "38;2;255;0;255",
                     'M' => "38;2;135;0;255",
                     'T' => "38;2;238;130;238",
                     else => "",
                 },
-                'T' => switch (array.items[j + 1]) {
+                'T' => switch (stdout.items[j + 1]) {
                     ' ' => "38;2;210;105;30",
                     'D' => "38;2;240;128;128",
                     'M' => "38;2;255;215;0",
@@ -236,7 +222,7 @@ fn status(array: *std.ArrayListAlignedUnmanaged(u8, 1)) void {
             };
             std.debug.print(
                 "\x1b[{s}m{s}\x1b[0m ",
-                .{ color, array.items[j + 3 .. i] },
+                .{ color, stdout.items[j + 3 .. i] },
             );
             j = i + 1;
         }
