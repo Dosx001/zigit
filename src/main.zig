@@ -25,8 +25,8 @@ fn branch(
     buffer: []u8,
 ) void {
     const file = std.fs.openFileAbsolute(
-        std.fmt.allocPrint(
-            std.heap.c_allocator,
+        std.fmt.bufPrint(
+            buffer,
             "{s}HEAD",
             .{path},
         ) catch unreachable,
@@ -71,11 +71,14 @@ fn stash(
     path: [*c]const u8,
     buffer: []u8,
 ) void {
-    const file = std.fs.openFileAbsolute(std.fmt.allocPrint(
-        std.heap.c_allocator,
-        "{s}logs/refs/stash",
-        .{path},
-    ) catch unreachable, .{}) catch |e| {
+    const file = std.fs.openFileAbsolute(
+        std.fmt.bufPrint(
+            buffer,
+            "{s}logs/refs/stash",
+            .{path},
+        ) catch unreachable,
+        .{},
+    ) catch |e| {
         switch (e) {
             error.FileNotFound => {
                 std.debug.print("\x1b[31m\n", .{});
@@ -118,8 +121,8 @@ fn state(
         };
     if (repo_state == git.GIT_REPOSITORY_STATE_MERGE) {
         const file = std.fs.openFileAbsolute(
-            std.fmt.allocPrint(
-                std.heap.c_allocator,
+            std.fmt.bufPrint(
+                buffer,
                 "{s}MERGE_MSG",
                 .{path},
             ) catch unreachable,
