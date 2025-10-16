@@ -89,7 +89,7 @@ fn stash(
     };
     var reader = file.reader(buffer);
     var count: u8 = 0;
-    while (reader.interface.takeDelimiterExclusive(
+    while (reader.interface.takeDelimiterInclusive(
         '\n',
     ) != error.EndOfStream) count += 1;
     std.debug.print(
