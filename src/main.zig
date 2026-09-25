@@ -11,28 +11,30 @@ pub fn main(init: std.process.Init) void {
         0,
         null,
     ) == c.GIT_ENOTFOUND) return;
-    const path = c.git_repository_path(repo);
+    const root = std.Io.Dir.cwd().openDir(
+        io,
+        std.mem.span(
+            c.git_repository_path(repo),
+        ),
+        .{},
+    ) catch unreachable;
     var buffer: [1024]u8 = undefined;
     log(repo);
     status(io);
-    state(repo, path, &buffer, io);
-    branch(path, &buffer, io);
-    stash(path, &buffer, io);
+    state(repo, root, &buffer, io);
+    branch(root, &buffer, io);
+    stash(root, &buffer, io);
     return;
 }
 
 fn branch(
-    path: [*c]const u8,
+    root: std.Io.Dir,
     buffer: []u8,
     io: std.Io,
 ) void {
-    const file = std.Io.Dir.openFileAbsolute(
+    const file = root.openFile(
         io,
-        std.fmt.bufPrint(
-            buffer,
-            "{s}HEAD",
-            .{path},
-        ) catch unreachable,
+        "HEAD",
         .{},
     ) catch unreachable;
     var reader = file.reader(io, buffer);
@@ -71,17 +73,13 @@ fn log(repo: ?*c.git_repository) void {
 }
 
 fn stash(
-    path: [*c]const u8,
+    root: std.Io.Dir,
     buffer: []u8,
     io: std.Io,
 ) void {
-    const file = std.Io.Dir.openFileAbsolute(
+    const file = root.openFile(
         io,
-        std.fmt.bufPrint(
-            buffer,
-            "{s}logs/refs/stash",
-            .{path},
-        ) catch unreachable,
+        "logs/refs/stash",
         .{},
     ) catch |e| {
         switch (e) {
@@ -105,7 +103,7 @@ fn stash(
 
 fn state(
     repo: ?*c.git_repository,
-    path: [*c]const u8,
+    root: std.Io.Dir,
     buffer: []u8,
     io: std.Io,
 ) void {
@@ -126,13 +124,9 @@ fn state(
             else => return,
         };
     if (repo_state == c.GIT_REPOSITORY_STATE_MERGE) {
-        const file = std.Io.Dir.openFileAbsolute(
+        const file = root.openFile(
             io,
-            std.fmt.bufPrint(
-                buffer,
-                "{s}MERGE_MSG",
-                .{path},
-            ) catch unreachable,
+            "MERGE_MSG",
             .{},
         ) catch unreachable;
         var reader = file.reader(io, buffer);
