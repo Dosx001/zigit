@@ -19,18 +19,23 @@ pub fn main(init: std.process.Init) void {
         .{},
     ) catch unreachable;
     var buffer: [1024]u8 = undefined;
-    log(repo);
-    status(io);
-    state(repo, root, &buffer, io);
-    branch(root, &buffer, io);
-    stash(root, &buffer, io);
+    var stdout_buffer: [1024]u8 = undefined;
+    var writer = std.Io.File.stdout().writer(io, &stdout_buffer);
+    const stdout = &writer.interface;
+    log(stdout, repo);
+    status(io, stdout);
+    state(io, stdout, &buffer, repo, root);
+    branch(io, stdout, &buffer, root);
+    stash(io, stdout, &buffer, root);
+    stdout.flush() catch unreachable;
     return;
 }
 
 fn branch(
-    root: std.Io.Dir,
-    buffer: []u8,
     io: std.Io,
+    stdout: *std.Io.Writer,
+    buffer: []u8,
+    root: std.Io.Dir,
 ) void {
     const file = root.openFile(
         io,
@@ -42,40 +47,44 @@ fn branch(
         '\n',
         std.Io.Limit.limited(32),
     ) catch |e| switch (e) {
-        error.StreamTooLong => return std.debug.print(
+        error.StreamTooLong => return stdout.print(
             "\x1b[30;41m {s} \x1b[0m",
             .{buffer[0..7]},
-        ),
+        ) catch unreachable,
         else => unreachable,
     };
-    std.debug.print(
+    stdout.print(
         "\x1b[30;41m {s} \x1b[0m",
         .{buffer[16..len]},
-    );
+    ) catch unreachable;
 }
 
-fn log(repo: ?*c.git_repository) void {
+fn log(
+    stdout: *std.Io.Writer,
+    repo: ?*c.git_repository,
+) void {
     var oid: c.git_oid = undefined;
     if (c.git_reference_name_to_id(
         &oid,
         repo,
         "HEAD",
     ) != 0) {
-        std.debug.print("\n", .{});
+        _ = stdout.write("\n") catch unreachable;
         return;
     }
     var commit: ?*c.git_commit = undefined;
     _ = c.git_commit_lookup(&commit, repo, &oid);
-    std.debug.print(
+    stdout.print(
         "\x1b[90m{s}\n",
         .{c.git_commit_summary(commit)},
-    );
+    ) catch unreachable;
 }
 
 fn stash(
-    root: std.Io.Dir,
-    buffer: []u8,
     io: std.Io,
+    stdout: *std.Io.Writer,
+    buffer: []u8,
+    root: std.Io.Dir,
 ) void {
     const file = root.openFile(
         io,
@@ -84,7 +93,7 @@ fn stash(
     ) catch |e| {
         switch (e) {
             error.FileNotFound => {
-                std.debug.print("\x1b[31m\n", .{});
+                _ = stdout.write("\x1b[31m\n") catch unreachable;
                 return;
             },
             else => unreachable,
@@ -95,17 +104,18 @@ fn stash(
     while (reader.interface.takeDelimiterInclusive(
         '\n',
     ) != error.EndOfStream) count += 1;
-    std.debug.print(
+    stdout.print(
         "\x1b[31;45m\x1b[30;45m Stashes: {} \x1b[0m\x1b[35m\n",
         .{count},
-    );
+    ) catch unreachable;
 }
 
 fn state(
+    io: std.Io,
+    stdout: *std.Io.Writer,
+    buffer: []u8,
     repo: ?*c.git_repository,
     root: std.Io.Dir,
-    buffer: []u8,
-    io: std.Io,
 ) void {
     const repo_state = c.git_repository_state(repo);
     const mode =
@@ -131,20 +141,23 @@ fn state(
         ) catch unreachable;
         var reader = file.reader(io, buffer);
         reader.interface.discardAll(14) catch unreachable;
-        std.debug.print(
+        stdout.print(
             "\x1b[30;41m {s} \x1b[42;31m",
             .{reader.interface.takeDelimiterExclusive(
                 '\'',
             ) catch unreachable},
-        );
+        ) catch unreachable;
     }
-    std.debug.print(
+    stdout.print(
         "\x1b[30;42m {s} \x1b[41;32m\x1b[30;41m",
         .{mode},
-    );
+    ) catch unreachable;
 }
 
-fn status(io: std.Io) void {
+fn status(
+    io: std.Io,
+    stdout: *std.Io.Writer,
+) void {
     const result = std.process.run(
         std.heap.c_allocator,
         io,
@@ -213,12 +226,13 @@ fn status(io: std.Io) void {
                 },
                 else => "",
             };
-            std.debug.print(
+            stdout.print(
                 "\x1b[{s}m{s}\x1b[0m ",
                 .{ color, result.stdout[j + 3 .. i] },
-            );
+            ) catch unreachable;
             j = i + 1;
         }
     }
-    if (j != 0) std.debug.print("\n", .{});
+    if (j != 0)
+        _ = stdout.write("\n") catch unreachable;
 }
