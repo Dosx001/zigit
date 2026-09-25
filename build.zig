@@ -21,6 +21,8 @@ pub fn build(b: *std.Build) void {
                 .name = "c",
                 .module = translate_c.createModule(),
             }},
+            .single_threaded = true,
+            .strip = optimize != .Debug,
         }),
     });
     b.installArtifact(exe);
